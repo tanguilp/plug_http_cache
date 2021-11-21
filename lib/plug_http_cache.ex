@@ -7,6 +7,29 @@ defmodule PlugHTTPCache do
 
   @behaviour Plug
 
+  @doc """
+  Adds one or more alternate keys to the request
+
+  Request with alternate keys can be later be invalidated with the
+  `:http_cache.invalidate_by_alternate_key/2` function.
+  """
+  @spec set_alternate_keys(Plug.Conn.t(), :http_cache.alternate_key() | [:http_cache.alternate_key()]) :: Plug.Conn.t()
+  def set_alternate_keys(conn, []) do
+    conn
+  end
+
+  def set_alternate_keys(
+    %Plug.Conn{private: %{plug_http_cache_alt_keys: existing_alt_keys}} = conn,
+    alt_keys
+  ) when is_list(alt_keys) do
+    put_in(conn.private[:plug_http_cache_alt_keys], existing_alt_keys ++ alt_keys)
+  end
+
+  def set_alternate_keys(conn, alt_keys) do
+    put_in(conn.private[:plug_http_cache_alt_keys], [])
+    |> set_alternate_keys(alt_keys)
+  end
+
   @impl true
   def init(opts) do
     unless opts[:http_cache][:store], do: raise "missing `:store` option for `:http_cache`"
@@ -53,7 +76,10 @@ defmodule PlugHTTPCache do
 
   @doc false
   def cache_response(%Plug.Conn{state: :set} = conn, opts) do
-    case :http_cache.cache(request(conn), response(conn), opts[:http_cache]) do
+    alt_keys = alt_keys(conn)
+    http_cache_opts = [{:alternate_keys, alt_keys} | opts[:http_cache]]
+
+    case :http_cache.cache(request(conn), response(conn), http_cache_opts) do
       {:ok, {status, resp_headers, resp_body}} ->
         %Plug.Conn{conn | status: status, resp_headers: resp_headers, resp_body: resp_body}
 
@@ -67,6 +93,9 @@ defmodule PlugHTTPCache do
   def cache_response(conn, _opts) do
     conn
   end
+
+  defp alt_keys(%Plug.Conn{private: %{plug_http_cache_alt_keys: alt_keys}}), do: Enum.dedup(alt_keys)
+  defp alt_keys(_), do: []
 
   defp request(conn) do
     {
