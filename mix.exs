@@ -22,7 +22,7 @@ defmodule PlugHTTPCache.MixProject do
   defp deps do
     [
       {:dialyxir, "~> 1.0", only: [:dev], runtime: false},
-      {:http_cache, path: "../http_cache"},
+      {:http_cache, github: "tanguilp/http_cache"},
       {:plug, "~> 1.0"}
     ]
   end
