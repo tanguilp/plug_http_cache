@@ -55,7 +55,7 @@ defmodule PlugHTTPCache do
   defp send_cached(conn, resp_ref, {_status, resp_headers, _body} = response, opts) do
     :http_cache.notify_use(resp_ref, opts[:http_cache])
 
-    Logger.info([what: :cached_response_sent, which: url(conn)])
+    Logger.info([what: :cached_response_sent, which: Plug.Conn.request_url(conn)])
 
     %Plug.Conn{conn | resp_headers: resp_headers}
     |> do_send_cached(response)
@@ -84,7 +84,7 @@ defmodule PlugHTTPCache do
         %Plug.Conn{conn | status: status, resp_headers: resp_headers, resp_body: resp_body}
 
       :not_cacheable ->
-        Logger.info([what: :response_not_cached, which: url(conn), reason: :not_cacheable])
+        Logger.info([what: :response_not_cached, which: Plug.Conn.request_url(conn), reason: :not_cacheable])
 
         conn
     end
@@ -100,7 +100,7 @@ defmodule PlugHTTPCache do
   defp request(conn) do
     {
       conn.method,
-      url(conn),
+      Plug.Conn.request_url(conn),
       conn.req_headers,
       req_body(conn)
     }
@@ -113,11 +113,6 @@ defmodule PlugHTTPCache do
       conn.resp_body
     }
   end
-
-  defp url(%Plug.Conn{query_string: ""} = conn),
-    do: "#{conn.scheme}://#{conn.host}:#{conn.port}#{conn.request_path}"
-  defp url(conn),
-    do: "#{conn.scheme}://#{conn.host}:#{conn.port}#{conn.request_path}?#{conn.query_string}"
 
   defp req_body(%Plug.Conn{body_params: %Plug.Conn.Unfetched{}}), do: ""
   defp req_body(conn), do: :erlang.term_to_binary(conn.body_params)
