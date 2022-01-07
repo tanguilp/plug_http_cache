@@ -3,8 +3,6 @@ defmodule PlugHTTPCache do
   Documentation for PlugHttpCache.
   """
 
-  require Logger
-
   @behaviour Plug
 
   @doc """
@@ -42,20 +40,21 @@ defmodule PlugHTTPCache do
   def call(conn, opts) do
     case :http_cache.get(request(conn), opts[:http_cache]) do
       {:ok, {resp_ref, response}} ->
+        telemetry_log(:hit)
         send_cached(conn, resp_ref, response, opts)
 
       {:stale, {resp_ref, response}} ->
+        telemetry_log(:hit)
         send_cached(conn, resp_ref, response, opts)
 
       _ ->
+        telemetry_log(:miss)
         install_callback(conn, opts)
     end
   end
 
   defp send_cached(conn, resp_ref, {_status, resp_headers, _body} = response, opts) do
     :http_cache.notify_use(resp_ref, opts[:http_cache])
-
-    Logger.info([what: :cached_response_sent, which: Plug.Conn.request_url(conn)])
 
     %Plug.Conn{conn | resp_headers: resp_headers}
     |> do_send_cached(response)
@@ -84,8 +83,6 @@ defmodule PlugHTTPCache do
         %Plug.Conn{conn | status: status, resp_headers: resp_headers, resp_body: resp_body}
 
       :not_cacheable ->
-        Logger.info([what: :response_not_cached, which: Plug.Conn.request_url(conn), reason: :not_cacheable])
-
         conn
     end
   end
@@ -116,4 +113,8 @@ defmodule PlugHTTPCache do
 
   defp req_body(%Plug.Conn{body_params: %Plug.Conn.Unfetched{}}), do: ""
   defp req_body(conn), do: :erlang.term_to_binary(conn.body_params)
+
+  defp telemetry_log(hit_or_miss) do
+    :telemetry.execute([:plug_http_cache, hit_or_miss], %{}, %{})
+  end
 end
