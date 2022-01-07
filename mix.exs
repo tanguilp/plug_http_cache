@@ -14,7 +14,8 @@ defmodule PlugHTTPCache.MixProject do
   # Run "mix help compile.app" to learn about applications.
   def application do
     [
-      extra_applications: [:logger]
+      extra_applications: [:logger],
+      mod: {PlugHTTPCache.Application, []}
     ]
   end
 
@@ -23,7 +24,8 @@ defmodule PlugHTTPCache.MixProject do
     [
       {:dialyxir, "~> 1.0", only: [:dev], runtime: false},
       {:http_cache, github: "tanguilp/http_cache"},
-      {:plug, "~> 1.0"}
+      {:plug, "~> 1.0"},
+      {:telemetry, "~> 1.0"}
     ]
   end
 end

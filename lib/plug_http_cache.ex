@@ -78,13 +78,22 @@ defmodule PlugHTTPCache do
     alt_keys = alt_keys(conn)
     http_cache_opts = [{:alternate_keys, alt_keys} | opts[:http_cache]]
 
-    case :http_cache.cache(request(conn), response(conn), http_cache_opts) do
-      {:ok, {status, resp_headers, resp_body}} ->
-        %Plug.Conn{conn | status: status, resp_headers: resp_headers, resp_body: resp_body}
+    Task.Supervisor.start_child(
+      PlugHTTPCache.WorkerSupervisor,
+      :http_cache,
+      :cache,
+      [request(conn), response(conn), http_cache_opts],
+      shutdown: :brutal_kill
+    )
+    |> case do
+      {:error, :max_children} ->
+        telemetry_log(:overloaded)
 
-      :not_cacheable ->
-        conn
+      _ ->
+        :ok
     end
+
+    conn
   end
 
   def cache_response(conn, _opts) do
@@ -107,14 +116,17 @@ defmodule PlugHTTPCache do
     {
       conn.status,
       conn.resp_headers,
-      conn.resp_body
+      # We convert to binary before sending to another process to benefit from passing
+      # a single reference to a binary versus possibly passing a IOlist to another process,
+      # which would have to be copied
+      :erlang.iolist_to_binary(conn.resp_body)
     }
   end
 
   defp req_body(%Plug.Conn{body_params: %Plug.Conn.Unfetched{}}), do: ""
   defp req_body(conn), do: :erlang.term_to_binary(conn.body_params)
 
-  defp telemetry_log(hit_or_miss) do
-    :telemetry.execute([:plug_http_cache, hit_or_miss], %{}, %{})
+  defp telemetry_log(event) do
+    :telemetry.execute([:plug_http_cache, event], %{}, %{})
   end
 end
