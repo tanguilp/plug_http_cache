@@ -54,8 +54,11 @@ defmodule PlugHTTPCache do
         plug PlugHTTPCacheDemoWeb.Router
       end
 
-  Note that
+  Note that:
   - chunked responses cannot be cached
+  - the response returned from the backend is not transformed: gzip and range
+  are not applied for a cacheable response the first time it is returned. This
+  is because responses are cached asynchronously to avoid adding a delay
   - some responses (called "cacheable by default") can be cached even when no
   `cache-control` header is set
   - Phoenix automatically sets the `"cache-control"` header to
