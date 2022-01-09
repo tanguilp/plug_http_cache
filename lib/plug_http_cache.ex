@@ -30,15 +30,15 @@ defmodule PlugHTTPCache do
 
   @impl true
   def init(opts) do
-    unless opts[:http_cache][:store], do: raise "missing `:store` option for `:http_cache`"
-    unless opts[:http_cache][:type], do: raise "missing `:type` option for `:http_cache`"
+    unless opts[:store], do: raise "missing `:store` option for `:http_cache`"
+    unless opts[:type], do: raise "missing `:type` option for `:http_cache`"
 
     opts
   end
 
   @impl true
   def call(conn, opts) do
-    case :http_cache.get(request(conn), opts[:http_cache]) do
+    case :http_cache.get(request(conn), opts) do
       {:ok, {resp_ref, response}} ->
         telemetry_log(:hit)
         send_cached(conn, resp_ref, response, opts)
@@ -54,7 +54,7 @@ defmodule PlugHTTPCache do
   end
 
   defp send_cached(conn, resp_ref, {_status, resp_headers, _body} = response, opts) do
-    :http_cache.notify_use(resp_ref, opts[:http_cache])
+    :http_cache.notify_use(resp_ref, opts)
 
     %Plug.Conn{conn | resp_headers: resp_headers}
     |> do_send_cached(response)
@@ -76,7 +76,7 @@ defmodule PlugHTTPCache do
   @doc false
   def cache_response(%Plug.Conn{state: :set} = conn, opts) do
     alt_keys = alt_keys(conn)
-    http_cache_opts = [{:alternate_keys, alt_keys} | opts[:http_cache]]
+    http_cache_opts = [{:alternate_keys, alt_keys} | opts]
 
     Task.Supervisor.start_child(
       PlugHTTPCache.WorkerSupervisor,
