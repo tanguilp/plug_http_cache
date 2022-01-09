@@ -1,6 +1,4 @@
 defmodule PlugHTTPCache.Application do
-  # See https://hexdocs.pm/elixir/Application.html
-  # for more information on OTP Applications
   @moduledoc false
 
   use Application
@@ -13,8 +11,6 @@ defmodule PlugHTTPCache.Application do
       {Task.Supervisor, name: PlugHTTPCache.WorkerSupervisor, max_children: @max_workers}
     ]
 
-    # See https://hexdocs.pm/elixir/Supervisor.html
-    # for other strategies and supported options
     opts = [strategy: :one_for_one, name: PlugHTTPCache.Supervisor]
     Supervisor.start_link(children, opts)
   end
