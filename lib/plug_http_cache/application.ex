@@ -3,7 +3,7 @@ defmodule PlugHTTPCache.Application do
 
   use Application
 
-  @max_workers Application.compile_env(:plug_http_cache, :max_workers, 50)
+  @max_workers Application.compile_env(:plug_http_cache, :max_workers, 16)
 
   @impl true
   def start(_type, _args) do
