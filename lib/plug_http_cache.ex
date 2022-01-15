@@ -124,6 +124,8 @@ defmodule PlugHTTPCache do
   The following events are emitted:
   - `[:plug_http_cache, :hit]` when a cached response is returned.
   - `[:plug_http_cache, :miss]` when no cached response was found
+  - `[:plug_http_cache, :stale_if_error]` when a response was returned because an error
+  occured dowstream (see `PlugHTTPCache.StaleIfError`)
   - `[:plug_http_cache, :overloaded]` when there's no free worker to add the response
 
   Neither measurements nor metadata are added to these events.
@@ -214,6 +216,9 @@ defmodule PlugHTTPCache do
 
       {:stale, {resp_ref, response}} ->
         telemetry_log(:hit)
+
+        if opts[:allow_stale_if_error], do: telemetry_log(:stale_if_error)
+
         send_cached(conn, resp_ref, response, opts)
 
       _ ->

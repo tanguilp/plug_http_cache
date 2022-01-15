@@ -3,6 +3,7 @@ defmodule PlugHTTPCache.StaleIfErrorTest do
   use Plug.Test
 
   @http_cache_opts type: :shared, store: :http_cache_store_native
+  @stale_returned_telemetry_event [:plug_http_cache, :stale_if_error]
 
   defmodule Router do
     use Plug.Router
@@ -17,8 +18,12 @@ defmodule PlugHTTPCache.StaleIfErrorTest do
     end
   end
 
-  test "stale response is returned when header is set in response" do
+  test "stale response is returned when header is set in response", %{test: test} do
     conn = conn(:get, "/boom")
+
+    :telemetry.attach(test, @stale_returned_telemetry_event, fn _, _, _, _ ->
+      send(self(), {:telemetry_event, @stale_returned_telemetry_event})
+    end, nil)
 
     request = {"GET", Plug.Conn.request_url(conn), [], ""}
     response = {200, [{"cache-control", "stale-if-error=30, max-age=0"}], "Some response"}
@@ -28,13 +33,18 @@ defmodule PlugHTTPCache.StaleIfErrorTest do
       Router.call(conn, [])
     end
     assert_received {:plug_conn, :sent}
+    assert_received {:telemetry_event, @stale_returned_telemetry_event}
     assert {200, _headers, "Some response"} = sent_resp(conn)
   end
 
-  test "stale response is returned when header is set in request" do
+  test "stale response is returned when header is set in request", %{test: test} do
     conn =
       conn(:get, "/boom")
       |> put_req_header("cache-control", "stale-if-error=30")
+
+    :telemetry.attach(test, @stale_returned_telemetry_event, fn _, _, _, _ ->
+      send(self(), {:telemetry_event, @stale_returned_telemetry_event})
+    end, nil)
 
     request = {"GET", Plug.Conn.request_url(conn), conn.req_headers, ""}
     response = {200, [{"cache-control", "max-age=0"}], "Some response"}
@@ -44,6 +54,7 @@ defmodule PlugHTTPCache.StaleIfErrorTest do
       Router.call(conn, [])
     end
     assert_received {:plug_conn, :sent}
+    assert_received {:telemetry_event, @stale_returned_telemetry_event}
     assert {200, _headers, "Some response"} = sent_resp(conn)
   end
 
