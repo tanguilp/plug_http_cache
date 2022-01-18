@@ -191,13 +191,17 @@ defmodule PlugHTTPCache do
   def set_alternate_keys(
     %Plug.Conn{private: %{plug_http_cache_alt_keys: existing_alt_keys}} = conn,
     alt_keys
-  ) when is_list(alt_keys) do
+  ) when is_list(existing_alt_keys) and is_list(alt_keys) do
     put_in(conn.private[:plug_http_cache_alt_keys], existing_alt_keys ++ alt_keys)
   end
 
-  def set_alternate_keys(conn, alt_keys) do
+  def set_alternate_keys(conn, alt_keys) when is_list(alt_keys) do
     put_in(conn.private[:plug_http_cache_alt_keys], [])
     |> set_alternate_keys(alt_keys)
+  end
+
+  def set_alternate_keys(conn, alt_keys) do
+    set_alternate_keys(conn, [alt_keys])
   end
 
   @impl true

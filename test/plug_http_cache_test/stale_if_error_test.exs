@@ -1,8 +1,8 @@
 defmodule PlugHTTPCache.StaleIfErrorTest do
-  use ExUnit.Case, async: true
+  use ExUnit.Case
   use Plug.Test
 
-  @http_cache_opts type: :shared, store: :http_cache_store_native
+  @http_cache_opts store: :http_cache_store_native
   @stale_returned_telemetry_event [:plug_http_cache, :stale_if_error]
 
   defmodule Router do
@@ -32,8 +32,8 @@ defmodule PlugHTTPCache.StaleIfErrorTest do
     assert_raise Plug.Conn.WrapperError, "** (RuntimeError) oops", fn ->
       Router.call(conn, [])
     end
-    assert_received {:plug_conn, :sent}
-    assert_received {:telemetry_event, @stale_returned_telemetry_event}
+    assert_receive {:plug_conn, :sent}
+    assert_receive {:telemetry_event, @stale_returned_telemetry_event}
     assert {200, _headers, "Some response"} = sent_resp(conn)
   end
 
@@ -53,8 +53,8 @@ defmodule PlugHTTPCache.StaleIfErrorTest do
     assert_raise Plug.Conn.WrapperError, "** (RuntimeError) oops", fn ->
       Router.call(conn, [])
     end
-    assert_received {:plug_conn, :sent}
-    assert_received {:telemetry_event, @stale_returned_telemetry_event}
+    assert_receive {:plug_conn, :sent}
+    assert_receive {:telemetry_event, @stale_returned_telemetry_event}
     assert {200, _headers, "Some response"} = sent_resp(conn)
   end
 
