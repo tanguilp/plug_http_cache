@@ -31,7 +31,7 @@ defmodule PlugHttpCacheTest do
       Router.call(conn, [])
       :timer.sleep(10)
 
-      assert {:ok, _} = :http_cache.get(request, store: :http_cache_store_native)
+      assert {:fresh, _} = :http_cache.get(request, store: :http_cache_store_native)
       assert_receive {:telemetry_event, @miss_telemetry_event}
     end
 
@@ -48,7 +48,7 @@ defmodule PlugHttpCacheTest do
 
       assert_receive {:telemetry_event, @hit_telemetry_event}
       assert conn.status == 200
-      assert [_ | _] = Plug.Conn.get_resp_header(conn, "age")
+      assert [_] = Plug.Conn.get_resp_header(conn, "age")
       assert conn.resp_body == "some content"
     end
   end

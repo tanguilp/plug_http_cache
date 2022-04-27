@@ -24,9 +24,9 @@ defmodule PlugHTTPCache.MixProject do
     [
       {:dialyxir, "~> 1.0", only: [:dev], runtime: false},
       {:ex_doc, "~> 0.24", only: :dev, runtime: false},
-      {:http_cache, github: "tanguilp/http_cache"},
+      {:http_cache, path: "../http_cache", override: true},
       {:plug, "~> 1.0"},
-      {:http_cache_store_native, github: "tanguilp/http_cache_store_native", only: [:test]},
+      {:http_cache_store_native, path: "../http_cache_store_native", only: [:test]},
       {:telemetry, "~> 1.0"}
     ]
   end

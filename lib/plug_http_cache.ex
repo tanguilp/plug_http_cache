@@ -152,7 +152,6 @@ defmodule PlugHTTPCache do
   - en, ru, fr
   - en;q=1, ru
   - en;q=1, ru;q=0.9
-  - en;q=1, ru;q=0.9
   - en;q=1, ru;q=0.8
   - en;q=1, ru;q=0.7
   - en;q=1, ru;q=0.6
@@ -214,16 +213,16 @@ defmodule PlugHTTPCache do
   @impl true
   def call(conn, opts) do
     case :http_cache.get(request(conn), opts) do
-      {:ok, {resp_ref, response}} ->
+      {:fresh, {resp_ref, response}} ->
         telemetry_log(:hit)
-        send_cached(conn, resp_ref, response, opts)
+        send_response(conn, resp_ref, response, opts)
 
       {:stale, {resp_ref, response}} ->
         telemetry_log(:hit)
 
         if opts[:allow_stale_if_error], do: telemetry_log(:stale_if_error)
 
-        send_cached(conn, resp_ref, response, opts)
+        send_response(conn, resp_ref, response, opts)
 
       _ ->
         telemetry_log(:miss)
@@ -231,20 +230,22 @@ defmodule PlugHTTPCache do
     end
   end
 
-  defp send_cached(conn, resp_ref, {_status, resp_headers, _body} = response, opts) do
-    :http_cache.notify_use(resp_ref, opts)
+  defp send_response(conn, resp_ref, response, opts) do
+    :http_cache.notify_response_used(resp_ref, opts)
 
+    send_response(conn, response)
+  end
+
+  defp send_response(conn, {status, resp_headers, {:sendfile, offset, length, path}}) do
     %Plug.Conn{conn | resp_headers: resp_headers}
-    |> do_send_cached(response)
+    |> Plug.Conn.send_file(status, path, offset, length)
     |> Plug.Conn.halt()
   end
 
-  defp do_send_cached(conn, {status, _resp_headers, {:sendfile, offset, length, path}}) do
-    Plug.Conn.send_file(conn, status, path, offset, length)
-  end
-
-  defp do_send_cached(conn, {status, _resp_headers, iodata_body}) do
-    Plug.Conn.send_resp(conn, status, iodata_body)
+  defp send_response(conn, {status, resp_headers, iodata_body}) do
+    %Plug.Conn{conn | resp_headers: resp_headers}
+    |> Plug.Conn.send_resp(status, iodata_body)
+    |> Plug.Conn.halt()
   end
 
   defp install_callback(conn, opts) do
@@ -255,22 +256,16 @@ defmodule PlugHTTPCache do
     alt_keys = alt_keys(conn)
     http_cache_opts = [{:alternate_keys, alt_keys} | opts]
 
-    Task.Supervisor.start_child(
-      PlugHTTPCache.WorkerSupervisor,
-      :http_cache,
-      :cache,
-      [request(conn), response(conn), http_cache_opts],
-      shutdown: :brutal_kill
-    )
-    |> case do
+    case :http_cache.cache(request(conn), response(conn), http_cache_opts) do
+      {:ok, _} ->
+        # We can't use the response returned by :http_cache because Plug disallow changing
+        # a response that is already :set
+        conn
+
       {:error, :max_children} ->
         telemetry_log(:overloaded)
-
-      _ ->
-        :ok
+        conn
     end
-
-    conn
   end
 
   defp cache_response(conn, _opts) do
