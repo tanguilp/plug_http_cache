@@ -262,8 +262,7 @@ defmodule PlugHTTPCache do
         # a response that is already :set
         conn
 
-      {:error, :max_children} ->
-        telemetry_log(:overloaded)
+      {:error, _} ->
         conn
     end
   end
