@@ -8,7 +8,7 @@ defmodule PlugHttpCacheTest do
   defmodule Router do
     use Plug.Router
 
-    plug PlugHTTPCache, store: :http_cache_store_native
+    plug PlugHTTPCache, store: :http_cache_store_process
     plug :match
     plug :dispatch
 
@@ -31,7 +31,7 @@ defmodule PlugHttpCacheTest do
       Router.call(conn, [])
       :timer.sleep(10)
 
-      assert {:fresh, _} = :http_cache.get(request, store: :http_cache_store_native)
+      assert {:fresh, _} = :http_cache.get(request, store: :http_cache_store_process)
       assert_receive {:telemetry_event, @miss_telemetry_event}
     end
 
@@ -64,7 +64,7 @@ defmodule PlugHttpCacheTest do
 
       :timer.sleep(10)
 
-      :http_cache.invalidate_by_alternate_key(:some_alt_key, store: :http_cache_store_native)
+      :http_cache.invalidate_by_alternate_key(:some_alt_key, store: :http_cache_store_process)
       conn = Router.call(conn, [])
 
       assert Plug.Conn.get_resp_header(conn, "age") == []
