@@ -7,7 +7,13 @@ defmodule PlugHTTPCache.MixProject do
       version: "0.1.0",
       elixir: "~> 1.10",
       start_permanent: Mix.env() == :prod,
-      deps: deps()
+      deps: deps(),
+      docs: [
+        main: "readme",
+        extras: ["README.md", "CHANGELOG.md"]
+      ],
+      package: package(),
+      source_url: "https://github.com/tanguilp/plug_http_cache"
     ]
   end
 
@@ -26,6 +32,13 @@ defmodule PlugHTTPCache.MixProject do
       {:http_cache, github: "tanguilp/http_cache"},
       {:plug, "~> 1.0"},
       {:telemetry, "~> 1.0"}
+    ]
+  end
+
+  def package() do
+    [
+      licenses: ["Apache-2.0"],
+      links: %{"GitHub" => "https://github.com/tanguilp/plug_http_cache"}
     ]
   end
 end
