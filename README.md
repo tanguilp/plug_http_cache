@@ -26,45 +26,49 @@ In your plug pipeline, set the Plug for routes on which you want to enable cachi
 
 `router.ex`
 
-      pipeline :cache do
-        plug PlugHTTPCache, @caching_options
-      end
+```elixir
+pipeline :cache do
+  plug PlugHTTPCache, @caching_options
+end
 
-      ...
+...
 
-      scope "/", PlugHTTPCacheDemoWeb do
-        pipe_through :browser
+scope "/", PlugHTTPCacheDemoWeb do
+  pipe_through :browser
 
-        scope "/some_route" do
-          pipe_through :cache
+  scope "/some_route" do
+    pipe_through :cache
 
-          ...
-        end
-      end
+    ...
+  end
+end
+```
 
 You can also configure it for all requests by setting it in Phoenix's endpoint
 file:
 
 `endpoint.ex`
 
-    defmodule MyApp.Endpoint do
-      use Phoenix.Endpoint, otp_app: :plug_http_cache_demo
+```elixir
+defmodule MyApp.Endpoint do
+  use Phoenix.Endpoint, otp_app: :plug_http_cache_demo
 
-      % some other plugs
+  % some other plugs
 
-      plug Plug.RequestId
-      plug Plug.Telemetry, event_prefix: [:phoenix, :endpoint]
-      plug Plug.Parsers,
-        parsers: [:urlencoded, :multipart, :json],
-        pass: ["*/*"],
-        json_decoder: Phoenix.json_library()
-      plug Plug.Head
-      plug Plug.Session, @session_options
+  plug Plug.RequestId
+  plug Plug.Telemetry, event_prefix: [:phoenix, :endpoint]
+  plug Plug.Parsers,
+    parsers: [:urlencoded, :multipart, :json],
+    pass: ["*/*"],
+    json_decoder: Phoenix.json_library()
+  plug Plug.Head
+  plug Plug.Session, @session_options
 
-      plug PlugHTTPCache, @caching_options
+  plug PlugHTTPCache, @caching_options
 
-      plug PlugHTTPCacheDemoWeb.Router
-    end
+  plug PlugHTTPCacheDemoWeb.Router
+end
+```
 
 Note that:
 - caching chunked responses is *not* supported
@@ -102,8 +106,10 @@ To use it along with this library, just add it to your mix.exs file:
 
 `mix.exs`
 
-    {:plug_http_cache, "~> ..."},
-    {:http_cache_store_native, "~> ..."},
+```elixir
+{:plug_http_cache, "~> ..."},
+{:http_cache_store_native, "~> ..."},
+```
 
 ## Security considerations
 
@@ -114,13 +120,17 @@ Unlike many HTTP caches, `http_cache` allows caching:
 In the first case, beware of authenticating before handling caching. In
 other words, **don't**:
 
-    PlugHTTPCache, @caching_options
-    MyPlug.AuthorizeUser
+```elixir
+PlugHTTPCache, @caching_options
+MyPlug.AuthorizeUser
+```
 
 which would return a cached response to unauthorized users, but **do** instead:
 
-    MyPlug.AuthorizeUser
-    PlugHTTPCache, @caching_options
+```elixir
+MyPlug.AuthorizeUser
+PlugHTTPCache, @caching_options
+```
 
 Beware of not setting caching headers on private responses containing cookies.
 
