@@ -10,6 +10,9 @@ See [`http_cache`](https://hexdocs.pm/http_cache/) documentation for more inform
 
 ![Screenshot of pug_http_cache_demo Grafana dashboard](https://raw.githubusercontent.com/tanguilp/plug_http_cache/master/media/grafana.png)
 
+Screenshot from the [`plug_http_cache_demo`](https://github.com/tanguilp/plug_http_cache_demo)
+application.
+
 ## Installation
 
 ```elixir
