@@ -69,7 +69,8 @@ defmodule PlugHTTPCache do
 
   ## Plug options
 
-  Plug options are those documented by `t::http_cache.opts/0`.
+  Plug options are those documented by
+  [`:http_cache.opts/0`](https://hexdocs.pm/http_cache/http_cache.html#t:opts/0).
 
   The only required option is `:store`.
 
