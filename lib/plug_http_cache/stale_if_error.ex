@@ -79,6 +79,7 @@ defmodule PlugHTTPCache.StaleIfError do
         rescue
           e in Plug.Conn.WrapperError ->
             %{conn: conn, kind: kind, stack: stack} = e
+
             PlugHTTPCache.StaleIfError.__handle_error__(
               conn,
               kind,

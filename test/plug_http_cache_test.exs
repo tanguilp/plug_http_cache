@@ -8,9 +8,9 @@ defmodule PlugHttpCacheTest do
   defmodule Router do
     use Plug.Router
 
-    plug PlugHTTPCache, store: :http_cache_store_process
-    plug :match
-    plug :dispatch
+    plug(PlugHTTPCache, store: :http_cache_store_process)
+    plug(:match)
+    plug(:dispatch)
 
     get "/page" do
       conn
@@ -24,9 +24,14 @@ defmodule PlugHttpCacheTest do
       conn = conn(:get, "/page?#{URI.encode_www_form(to_string(test))}")
       request = {"GET", Plug.Conn.request_url(conn), [], ""}
 
-      :telemetry.attach(test, @miss_telemetry_event, fn _, _, _, _ ->
-        send(self(), {:telemetry_event, @miss_telemetry_event})
-      end, nil)
+      :telemetry.attach(
+        test,
+        @miss_telemetry_event,
+        fn _, _, _, _ ->
+          send(self(), {:telemetry_event, @miss_telemetry_event})
+        end,
+        nil
+      )
 
       Router.call(conn, [])
       :timer.sleep(10)
@@ -38,9 +43,14 @@ defmodule PlugHttpCacheTest do
     test "cached content is served", %{test: test} do
       conn = conn(:get, "/page?#{URI.encode_www_form(to_string(test))}")
 
-      :telemetry.attach(test, @hit_telemetry_event, fn _, _, _, _ ->
-        send(self(), {:telemetry_event, @hit_telemetry_event})
-      end, nil)
+      :telemetry.attach(
+        test,
+        @hit_telemetry_event,
+        fn _, _, _, _ ->
+          send(self(), {:telemetry_event, @hit_telemetry_event})
+        end,
+        nil
+      )
 
       Router.call(conn, [])
       :timer.sleep(10)

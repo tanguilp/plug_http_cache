@@ -1,4 +1,4 @@
-# PlugHttpCache
+# PlugHTTPCache
 
 A Plug that caches HTTP responses
 

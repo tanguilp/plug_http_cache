@@ -10,8 +10,8 @@ defmodule PlugHTTPCache.StaleIfErrorTest do
     use PlugHTTPCache.StaleIfError, type: :shared, store: :http_cache_store_process
     use Plug.ErrorHandler
 
-    plug :match
-    plug :dispatch
+    plug(:match)
+    plug(:dispatch)
 
     get "/boom" do
       raise "oops"
@@ -21,9 +21,14 @@ defmodule PlugHTTPCache.StaleIfErrorTest do
   test "stale response is returned when header is set in response", %{test: test} do
     conn = conn(:get, "/boom")
 
-    :telemetry.attach(test, @stale_returned_telemetry_event, fn _, _, _, _ ->
-      send(self(), {:telemetry_event, @stale_returned_telemetry_event})
-    end, nil)
+    :telemetry.attach(
+      test,
+      @stale_returned_telemetry_event,
+      fn _, _, _, _ ->
+        send(self(), {:telemetry_event, @stale_returned_telemetry_event})
+      end,
+      nil
+    )
 
     request = {"GET", Plug.Conn.request_url(conn), [], ""}
     response = {200, [{"cache-control", "stale-if-error=30, max-age=0"}], "Some response"}
@@ -32,6 +37,7 @@ defmodule PlugHTTPCache.StaleIfErrorTest do
     assert_raise Plug.Conn.WrapperError, "** (RuntimeError) oops", fn ->
       Router.call(conn, [])
     end
+
     assert_receive {:plug_conn, :sent}
     assert_receive {:telemetry_event, @stale_returned_telemetry_event}
     assert {200, _headers, "Some response"} = sent_resp(conn)
@@ -42,9 +48,14 @@ defmodule PlugHTTPCache.StaleIfErrorTest do
       conn(:get, "/boom")
       |> put_req_header("cache-control", "stale-if-error=30")
 
-    :telemetry.attach(test, @stale_returned_telemetry_event, fn _, _, _, _ ->
-      send(self(), {:telemetry_event, @stale_returned_telemetry_event})
-    end, nil)
+    :telemetry.attach(
+      test,
+      @stale_returned_telemetry_event,
+      fn _, _, _, _ ->
+        send(self(), {:telemetry_event, @stale_returned_telemetry_event})
+      end,
+      nil
+    )
 
     request = {"GET", Plug.Conn.request_url(conn), conn.req_headers, ""}
     response = {200, [{"cache-control", "max-age=0"}], "Some response"}
@@ -53,6 +64,7 @@ defmodule PlugHTTPCache.StaleIfErrorTest do
     assert_raise Plug.Conn.WrapperError, "** (RuntimeError) oops", fn ->
       Router.call(conn, [])
     end
+
     assert_receive {:plug_conn, :sent}
     assert_receive {:telemetry_event, @stale_returned_telemetry_event}
     assert {200, _headers, "Some response"} = sent_resp(conn)
