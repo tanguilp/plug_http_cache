@@ -266,7 +266,7 @@ defmodule PlugHTTPCache do
         # a response that is already :set
         conn
 
-      {:error, _} ->
+      :not_cacheable ->
         conn
     end
   end

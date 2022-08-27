@@ -34,7 +34,6 @@ defmodule PlugHttpCacheTest do
       )
 
       Router.call(conn, [])
-      :timer.sleep(10)
 
       assert {:fresh, _} = :http_cache.get(request, store: :http_cache_store_process)
       assert_receive {:telemetry_event, @miss_telemetry_event}
@@ -53,13 +52,34 @@ defmodule PlugHttpCacheTest do
       )
 
       Router.call(conn, [])
-      :timer.sleep(10)
       conn = Router.call(conn, [])
 
       assert_receive {:telemetry_event, @hit_telemetry_event}
       assert conn.status == 200
       assert [_] = Plug.Conn.get_resp_header(conn, "age")
       assert conn.resp_body == "some content"
+    end
+
+    test "non-cacheable content is not cached", %{test: test} do
+      conn =
+        conn(:get, "/page?#{URI.encode_www_form(to_string(test))}")
+        |> put_req_header("cache-control", "no-store")
+
+      request = {"GET", Plug.Conn.request_url(conn), [], ""}
+
+      :telemetry.attach(
+        test,
+        @miss_telemetry_event,
+        fn _, _, _, _ ->
+          send(self(), {:telemetry_event, @miss_telemetry_event})
+        end,
+        nil
+      )
+
+      Router.call(conn, [])
+
+      assert :http_cache.get(request, store: :http_cache_store_process) == :miss
+      assert_receive {:telemetry_event, @miss_telemetry_event}
     end
   end
 

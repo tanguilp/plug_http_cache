@@ -2,8 +2,9 @@
 
 A Plug that caches HTTP responses
 
-This plug library relies on the `http_cache` library. It supports all caching
-features of [RFC9111](https://datatracker.ietf.org/doc/html/rfc9111) and more
+This plug library relies on the [`http_cache`](https://hexdocs.pm/http_cache)
+library. It supports all caching features of
+[RFC9111](https://datatracker.ietf.org/doc/html/rfc9111) and more
 (such as conditional requests and range requests).
 
 See [`http_cache`](https://hexdocs.pm/http_cache/) documentation for more information.
