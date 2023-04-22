@@ -59,9 +59,9 @@ defmodule PlugHTTPCache.StaleIfError do
   """
 
   defmacro __using__(opts) do
-    opts = PlugHTTPCache.init(opts)
-
     quote bind_quoted: [opts: opts] do
+      opts = PlugHTTPCache.init(opts)
+
       @before_compile PlugHTTPCache.StaleIfError
 
       @__stale_if_error_opts__ opts
@@ -112,7 +112,7 @@ defmodule PlugHTTPCache.StaleIfError do
         conn
     after
       0 ->
-        opts = Keyword.put(opts, :allow_stale_if_error, true)
+        opts = Map.put(opts, :allow_stale_if_error, true)
 
         PlugHTTPCache.call(conn, opts)
     end

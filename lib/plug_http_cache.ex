@@ -171,11 +171,11 @@ defmodule PlugHTTPCache do
 
   @behaviour Plug
 
-  @default_caching_options [
+  @default_caching_options %{
     type: :shared,
     auto_compress: true,
     auto_accept_encoding: true
-  ]
+  }
 
   @doc """
   Adds one or more alternate keys to the cached response
@@ -210,44 +210,58 @@ defmodule PlugHTTPCache do
 
   @impl true
   def init(opts) do
-    unless opts[:store], do: raise("missing `:store` option for `:http_cache`")
-
-    Keyword.merge(@default_caching_options, opts)
+    Map.merge(@default_caching_options, opts)
   end
 
   @impl true
   def call(conn, opts) do
-    case :http_cache.get(request(conn), opts) do
+    http_cache_request = request(conn)
+
+    case :http_cache.get(http_cache_request, opts) do
       {:fresh, {resp_ref, response}} ->
         telemetry_log(:hit)
-        send_response(conn, resp_ref, response, opts)
+        notify_and_send_response(conn, resp_ref, response, opts)
 
       {:stale, {resp_ref, response}} ->
         telemetry_log(:hit)
 
         if opts[:allow_stale_if_error], do: telemetry_log(:stale_if_error)
 
-        send_response(conn, resp_ref, response, opts)
+        notify_and_send_response(conn, resp_ref, response, opts)
 
       _ ->
         telemetry_log(:miss)
-        install_callback(conn, opts)
+        conn = install_callback(conn, opts)
+
+        :http_cache.notify_downloading(http_cache_request, self(), opts)
+
+        conn
     end
   end
 
-  defp send_response(conn, resp_ref, response, opts) do
+  defp notify_and_send_response(conn, resp_ref, response, opts) do
     :http_cache.notify_response_used(resp_ref, opts)
 
-    send_response(conn, response)
+    send_response(conn, response, opts)
   end
 
-  defp send_response(conn, {status, resp_headers, {:sendfile, offset, length, path}}) do
+  defp send_response(conn, {status, resp_headers, {:sendfile, offset, length, path}}, opts) do
     %Plug.Conn{conn | resp_headers: resp_headers}
     |> Plug.Conn.send_file(status, path, offset, length)
     |> Plug.Conn.halt()
+  rescue
+    e ->
+      case e do
+        %File.Error{reason: :enoent} ->
+          telemetry_log(:miss)
+          install_callback(conn, opts)
+
+        _ ->
+          reraise e, __STACKTRACE__
+      end
   end
 
-  defp send_response(conn, {status, resp_headers, iodata_body}) do
+  defp send_response(conn, {status, resp_headers, iodata_body}, _opts) do
     %Plug.Conn{conn | resp_headers: resp_headers}
     |> Plug.Conn.send_resp(status, iodata_body)
     |> Plug.Conn.halt()
@@ -259,7 +273,7 @@ defmodule PlugHTTPCache do
 
   defp cache_response(%Plug.Conn{state: :set} = conn, opts) do
     alt_keys = alt_keys(conn)
-    http_cache_opts = [{:alternate_keys, alt_keys} | opts]
+    http_cache_opts = Map.put(opts, :alternate_keys, alt_keys)
 
     case :http_cache.cache(request(conn), response(conn), http_cache_opts) do
       {:ok, _} ->
