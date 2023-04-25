@@ -19,7 +19,7 @@ application.
 ```elixir
 def deps do
   [
-    {:plug_http_cache, "~> 0.1.0"}
+    {:plug_http_cache, "~> 0.2.0"}
   ]
 end
 ```
