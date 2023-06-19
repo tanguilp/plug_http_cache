@@ -101,11 +101,15 @@ This plug sets the following default options:
 
 ## Stores
 
-A store is needed to store the cached responses. This library doesn't provide
-one by default.
+Responses have to be stored in a separate store backend (this library does not come with one), such
+as:
+- [`http_cache_store_memory`](https://github.com/tanguilp/http_cache_store_memory): responses are
+stored in memory (ETS)
+- [`http_cache_store_disk`](https://github.com/tanguilp/http_cache_store_disk): responses are
+stored on disk. This library uses the `sendfile` system call and therefore benefits from the kernel's
+memory caching automatically
 
-[`http_cache_store_native`](https://github.com/tanguilp/http_cache_store_native)
-is such a store and uses the native VM capabilities and is cluster aware.
+Both are cluster-aware.
 
 To use it along with this library, just add it to your mix.exs file:
 
@@ -113,7 +117,7 @@ To use it along with this library, just add it to your mix.exs file:
 
 ```elixir
 {:plug_http_cache, "~> ..."},
-{:http_cache_store_native, "~> ..."},
+{:http_cache_store_memory, "~> ..."},
 ```
 
 ## Security considerations
@@ -157,7 +161,7 @@ occurred downstream (see `PlugHTTPCache.StaleIfError`)
 
 Neither measurements nor metadata are added to these events.
 
-The `http_cache` and `http_cache_store_native` emit other events about
+The `http_cache`, `http_cache_store_memory` and `http_cache_store_disk` emit other events about
 the caching subsystems, including some helping with detecting normalization issues.
 
 ## Normalization
