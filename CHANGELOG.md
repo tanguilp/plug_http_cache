@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog and this project adheres to Semantic Versioning.
 
+## [0.3.0] - 2023-06-22
+
+### Changed
+
+- [`TeslaHTTPCache`] Make `http_cache` an optional depedency
+
 ## [0.2.0] - 2023-04-25
 
 ### Changed
