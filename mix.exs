@@ -5,7 +5,7 @@ defmodule PlugHTTPCache.MixProject do
     [
       app: :plug_http_cache,
       description: "A Plug that caches HTTP responses",
-      version: "0.3.0",
+      version: "0.3.1",
       elixir: "~> 1.10",
       start_permanent: Mix.env() == :prod,
       deps: deps(),

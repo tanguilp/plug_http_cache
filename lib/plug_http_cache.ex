@@ -323,6 +323,7 @@ defmodule PlugHTTPCache do
   end
 
   defp req_body(%Plug.Conn{body_params: %Plug.Conn.Unfetched{}}), do: ""
+  defp req_body(%Plug.Conn{body_params: %{} = map}) when map_size(map) == 0, do: ""
   defp req_body(conn), do: :erlang.term_to_binary(conn.body_params)
 
   defp telemetry_log(event) do

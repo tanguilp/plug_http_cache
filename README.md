@@ -19,7 +19,7 @@ application.
 ```elixir
 def deps do
   [
-    {:http_cache, "~> 0.3.0"}
+    {:http_cache, "~> 0.3.0"},
     {:plug_http_cache, "~> 0.3.0"}
   ]
 end
@@ -117,6 +117,7 @@ To use it along with this library, just add it to your mix.exs file:
 `mix.exs`
 
 ```elixir
+{:http_cache, "~> ..."},
 {:plug_http_cache, "~> ..."},
 {:http_cache_store_memory, "~> ..."},
 ```

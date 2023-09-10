@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog and this project adheres to Semantic Versioning.
 
+## [0.3.1] - 2023-09-10
+
+### Changed
+
+- [`TeslaHTTPCache`] When the request body is parsed and there are no parameters, it
+is set to the empty string `""`
+
 ## [0.3.0] - 2023-06-22
 
 ### Changed
