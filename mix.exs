@@ -32,7 +32,7 @@ defmodule PlugHTTPCache.MixProject do
       {:dialyxir, "~> 1.0", only: [:dev], runtime: false},
       {:ex_doc, "~> 0.24", only: :dev, runtime: false},
       {:http_cache, "~> 0.3.0", optional: true},
-      {:plug, "~> 1.0"},
+      {:plug, github: "elixir-plug/plug"},
       {:telemetry, "~> 1.0"}
     ]
   end

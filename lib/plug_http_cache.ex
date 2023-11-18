@@ -238,12 +238,32 @@ defmodule PlugHTTPCache do
 
       _ ->
         telemetry_log(:miss)
-        conn = install_callback(conn, opts)
+        conn = install_callbacks(conn, opts)
 
         :http_cache.notify_downloading(http_cache_request, self(), opts)
 
         conn
     end
+  end
+
+  def close_chunked(%Plug.Conn{private: %{chunk_offset: _}} = conn, opts) do
+    chunk_offset = conn.private.chunk_offset
+    last_chunk_byte = conn.private.last_chunk_byte
+
+    alt_keys = alt_keys(conn)
+    http_cache_opts = Map.put(opts, :alternate_keys, alt_keys)
+
+    content_range = "bytes #{chunk_offset - 1}-#{chunk_offset - 1}/#{chunk_offset}"
+    resp_headers = conn.resp_headers ++ [{"content-range", content_range}]
+    response = {206, resp_headers, to_string([last_chunk_byte])}
+
+    :http_cache.cache(request(conn), response, http_cache_opts)
+
+    conn
+  end
+
+  def close_chunked(conn, _opts) do
+    conn
   end
 
   defp notify_and_send_response(conn, resp_ref, response, opts) do
@@ -261,7 +281,7 @@ defmodule PlugHTTPCache do
       case e do
         %File.Error{reason: :enoent} ->
           telemetry_log(:miss)
-          install_callback(conn, opts)
+          install_callbacks(conn, opts)
 
         _ ->
           reraise e, __STACKTRACE__
@@ -274,8 +294,10 @@ defmodule PlugHTTPCache do
     |> Plug.Conn.halt()
   end
 
-  defp install_callback(conn, opts) do
-    Plug.Conn.register_before_send(conn, &cache_response(&1, opts))
+  defp install_callbacks(conn, opts) do
+    conn
+    |> Plug.Conn.register_before_send(&cache_response(&1, opts))
+    |> Plug.Conn.register_before_chunk(&cache_chunk(&1, &2, opts))
   end
 
   defp cache_response(%Plug.Conn{state: :set} = conn, opts) do
@@ -294,6 +316,37 @@ defmodule PlugHTTPCache do
   end
 
   defp cache_response(conn, _opts) do
+    conn
+  end
+
+  defp cache_chunk(%Plug.Conn{state: :chunked} = conn, "", _opts) do
+    conn
+  end
+
+  defp cache_chunk(%Plug.Conn{state: :chunked} = conn, [], _opts) do
+    conn
+  end
+
+  defp cache_chunk(%Plug.Conn{state: :chunked} = conn, chunk, opts) do
+    chunk = IO.iodata_to_binary(chunk)
+    chunk_len = byte_size(chunk)
+
+    alt_keys = alt_keys(conn)
+    http_cache_opts = Map.put(opts, :alternate_keys, alt_keys)
+
+    chunk_offset = conn.private[:chunk_offset] || 0
+    content_range = "bytes #{chunk_offset}-#{chunk_offset + chunk_len - 1}/*"
+    resp_headers = conn.resp_headers ++ [{"content-range", content_range}]
+    response = {206, resp_headers, chunk}
+
+    :http_cache.cache(request(conn), response, http_cache_opts)
+
+    conn
+    |> Plug.Conn.put_private(:chunk_offset, chunk_offset + chunk_len)
+    |> Plug.Conn.put_private(:last_chunk_byte, :binary.last(chunk))
+  end
+
+  defp cache_chunk(conn, _chunk, _opts) do
     conn
   end
 

@@ -17,11 +17,43 @@ defmodule PlugHttpCacheTest do
       |> Plug.Conn.delete_resp_header("cache-control")
       |> send_resp(200, "some content")
     end
+
+    get "/chunked" do
+      conn =
+        conn
+        |> Plug.Conn.delete_resp_header("cache-control")
+        |> send_chunked(200)
+
+      {:ok, conn} = chunk(conn, "Some ")
+      {:ok, conn} = chunk(conn, "chunked ")
+      {:ok, conn} = chunk(conn, "content")
+
+      conn
+    end
   end
 
   describe "call/2" do
     test "response is cached", %{test: test} do
       conn = conn(:get, "/page?#{URI.encode_www_form(to_string(test))}")
+      request = {"GET", Plug.Conn.request_url(conn), [], ""}
+
+      :telemetry.attach(
+        test,
+        @miss_telemetry_event,
+        fn _, _, _, _ ->
+          send(self(), {:telemetry_event, @miss_telemetry_event})
+        end,
+        nil
+      )
+
+      Router.call(conn, [])
+
+      assert {:fresh, _} = :http_cache.get(request, %{store: :http_cache_store_process})
+      assert_receive {:telemetry_event, @miss_telemetry_event}
+    end
+
+    test "chunked response is cached", %{test: test} do
+      conn = conn(:get, "/chunked?#{URI.encode_www_form(to_string(test))}")
       request = {"GET", Plug.Conn.request_url(conn), [], ""}
 
       :telemetry.attach(
