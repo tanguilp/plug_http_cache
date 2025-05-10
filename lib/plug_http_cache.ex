@@ -231,9 +231,6 @@ defmodule PlugHTTPCache do
 
       {:stale, {resp_ref, response}} ->
         telemetry_log(:hit)
-
-        if opts[:allow_stale_if_error], do: telemetry_log(:stale_if_error)
-
         notify_and_send_response(conn, resp_ref, response, opts)
 
       _ ->
@@ -246,13 +243,15 @@ defmodule PlugHTTPCache do
     end
   end
 
-  defp notify_and_send_response(conn, resp_ref, response, opts) do
+  @doc false
+  def notify_and_send_response(conn, resp_ref, response, opts) do
     :http_cache.notify_response_used(resp_ref, opts)
 
     send_response(conn, response, opts)
   end
 
-  defp send_response(conn, {status, resp_headers, {:sendfile, offset, length, path}}, opts) do
+  @doc false
+  def send_response(conn, {status, resp_headers, {:sendfile, offset, length, path}}, opts) do
     %Plug.Conn{conn | resp_headers: resp_headers}
     |> Plug.Conn.send_file(status, path, offset, length)
     |> Plug.Conn.halt()
@@ -268,7 +267,7 @@ defmodule PlugHTTPCache do
       end
   end
 
-  defp send_response(conn, {status, resp_headers, iodata_body}, _opts) do
+  def send_response(conn, {status, resp_headers, iodata_body}, _opts) do
     %Plug.Conn{conn | resp_headers: resp_headers}
     |> Plug.Conn.send_resp(status, iodata_body)
     |> Plug.Conn.halt()
@@ -282,15 +281,11 @@ defmodule PlugHTTPCache do
     alt_keys = alt_keys(conn)
     http_cache_opts = Map.put(opts, :alternate_keys, alt_keys)
 
-    case :http_cache.cache(request(conn), response(conn), http_cache_opts) do
-      {:ok, _} ->
-        # We can't use the response returned by :http_cache because Plug disallow changing
-        # a response that is already :set
-        conn
+    # The response is already sent and we cannot modify it with the result of :http_cache.cache/3,
+    # hence we don't use the result of this function
+    :http_cache.cache(request(conn), response(conn), http_cache_opts)
 
-      :not_cacheable ->
-        conn
-    end
+    conn
   end
 
   defp cache_response(conn, _opts) do
@@ -302,7 +297,8 @@ defmodule PlugHTTPCache do
 
   defp alt_keys(_), do: []
 
-  defp request(conn) do
+  @doc false
+  def request(conn) do
     {
       conn.method,
       Plug.Conn.request_url(conn),
@@ -326,7 +322,8 @@ defmodule PlugHTTPCache do
   defp req_body(%Plug.Conn{body_params: %{} = map}) when map_size(map) == 0, do: ""
   defp req_body(conn), do: :erlang.term_to_binary(conn.body_params)
 
-  defp telemetry_log(event) do
+  @doc false
+  def telemetry_log(event) do
     :telemetry.execute([:plug_http_cache, event], %{}, %{})
   end
 end

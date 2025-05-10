@@ -78,12 +78,13 @@ defmodule PlugHTTPCache.StaleIfError do
           super(conn, opts)
         rescue
           e in Plug.Conn.WrapperError ->
-            %{conn: conn, kind: kind, stack: stack} = e
+            %{conn: conn, kind: kind, reason: reason, stack: stack} = e
 
             PlugHTTPCache.StaleIfError.__handle_error__(
               conn,
               kind,
               e,
+              reason,
               stack,
               @__stale_if_error_opts__
             )
@@ -92,6 +93,7 @@ defmodule PlugHTTPCache.StaleIfError do
             PlugHTTPCache.StaleIfError.__handle_error__(
               conn,
               kind,
+              reason,
               reason,
               __STACKTRACE__,
               @__stale_if_error_opts__
@@ -104,7 +106,7 @@ defmodule PlugHTTPCache.StaleIfError do
   @already_sent {:plug_conn, :sent}
 
   @doc false
-  def __handle_error__(conn, kind, reason, stack, opts) do
+  def __handle_error__(conn, kind, e, reason, stack, http_cache_opts) do
     receive do
       @already_sent ->
         send(self(), @already_sent)
@@ -112,11 +114,19 @@ defmodule PlugHTTPCache.StaleIfError do
         conn
     after
       0 ->
-        opts = Map.put(opts, :allow_stale_if_error, true)
+        request = PlugHTTPCache.request(conn)
+        response = {Plug.Exception.status(reason), [{"cache-control", "no-store"}], ""}
 
-        PlugHTTPCache.call(conn, opts)
+        case :http_cache.cache(request, response, http_cache_opts) do
+          {:not_cacheable, {resp_ref, response}} ->
+            PlugHTTPCache.telemetry_log(:stale_if_error)
+            PlugHTTPCache.notify_and_send_response(conn, resp_ref, response, http_cache_opts)
+
+          :not_cacheable ->
+            conn
+        end
     end
 
-    :erlang.raise(kind, reason, stack)
+    :erlang.raise(kind, e, stack)
   end
 end
