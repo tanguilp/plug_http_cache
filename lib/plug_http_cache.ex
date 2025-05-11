@@ -136,7 +136,7 @@ defmodule PlugHTTPCache do
   - `[:plug_http_cache, :stale_if_error]` when a response was returned because an error
   occurred downstream (see `PlugHTTPCache.StaleIfError`)
 
-  Neither measurements nor metadata are added to these events.
+  `conn` is added to the events' metadata.
 
   The `http_cache`, `http_cache_store_memory` and `http_cache_store_disk` emit other events about
   the caching subsystems, including some helping with detecting normalization issues.
@@ -226,15 +226,15 @@ defmodule PlugHTTPCache do
 
     case :http_cache.get(http_cache_request, opts) do
       {:fresh, {resp_ref, response}} ->
-        telemetry_log(:hit)
+        telemetry_log(:hit, conn)
         notify_and_send_response(conn, resp_ref, response, opts)
 
       {:stale, {resp_ref, response}} ->
-        telemetry_log(:hit)
+        telemetry_log(:hit, conn)
         notify_and_send_response(conn, resp_ref, response, opts)
 
       _ ->
-        telemetry_log(:miss)
+        telemetry_log(:miss, conn)
         conn = install_callback(conn, opts)
 
         :http_cache.notify_downloading(http_cache_request, self(), opts)
@@ -259,7 +259,7 @@ defmodule PlugHTTPCache do
     e ->
       case e do
         %File.Error{reason: :enoent} ->
-          telemetry_log(:miss)
+          telemetry_log(:miss, conn)
           install_callback(conn, opts)
 
         _ ->
@@ -323,7 +323,7 @@ defmodule PlugHTTPCache do
   defp req_body(conn), do: :erlang.term_to_binary(conn.body_params)
 
   @doc false
-  def telemetry_log(event) do
-    :telemetry.execute([:plug_http_cache, event], %{}, %{})
+  def telemetry_log(event, conn) do
+    :telemetry.execute([:plug_http_cache, event], %{}, %{conn: conn})
   end
 end

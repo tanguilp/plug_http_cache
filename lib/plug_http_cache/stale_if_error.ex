@@ -119,7 +119,7 @@ defmodule PlugHTTPCache.StaleIfError do
 
         case :http_cache.cache(request, response, http_cache_opts) do
           {:not_cacheable, {resp_ref, response}} ->
-            PlugHTTPCache.telemetry_log(:stale_if_error)
+            PlugHTTPCache.telemetry_log(:stale_if_error, conn)
             PlugHTTPCache.notify_and_send_response(conn, resp_ref, response, http_cache_opts)
 
           :not_cacheable ->

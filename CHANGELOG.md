@@ -6,6 +6,10 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [0.3.1] - 2023-09-10
 
+### Added
+
+- [`TeslaHTTPCache`] The `conn` is added to telemetry events' metadata
+
 ### Changed
 
 - [`TeslaHTTPCache`] When the request body is parsed and there are no parameters, it
