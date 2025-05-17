@@ -130,6 +130,19 @@ defmodule PlugHttpCacheTest do
       assert_receive {[:http_cache, :cache], ^ref, _, %{cacheable: true}}
       assert_receive {[:http_cache, :cache], ^ref, _, %{cacheable: true}}
     end
+
+    test "client max-stale is discarded" do
+      # If it was not, then the user would be able to create infinite cycles because we use
+      # `max-stale=0` when revalidating to prevent receiving again a stale response which will
+      # trigger another revalidation and so on
+
+      conn =
+        :get
+        |> conn("/stale/while/revalidate")
+        |> Plug.Conn.put_req_header("cache-control", "max-stale=3600")
+
+      assert %Plug.Conn{} = EndpointForRevalidate.call(conn, [])
+    end
   end
 
   describe "set_alternate_keys/2" do
