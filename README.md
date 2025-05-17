@@ -19,8 +19,8 @@ application.
 ```elixir
 def deps do
   [
-    {:http_cache, "~> 0.3.0"},
-    {:plug_http_cache, "~> 0.3.0"}
+    {:http_cache, "~> 0.4.0"},
+    {:plug_http_cache, "~> 0.4.0"}
   ]
 end
 ```
@@ -99,6 +99,7 @@ This plug sets the following default options:
 - `:type`: `:shared`,
 - `:auto_compress`: `true`,
 - `:auto_accept_encoding`: `true`
+- `:stale_while_revalidate_supported`: `true`
 
 ## Stores
 
@@ -161,7 +162,7 @@ The following events are emitted:
 - `[:plug_http_cache, :stale_if_error]` when a response was returned because an error
 occurred downstream (see `PlugHTTPCache.StaleIfError`)
 
-Neither measurements nor metadata are added to these events.
+`conn` is added to the events' metadata.
 
 The `http_cache`, `http_cache_store_memory` and `http_cache_store_disk` emit other events about
 the caching subsystems, including some helping with detecting normalization issues.

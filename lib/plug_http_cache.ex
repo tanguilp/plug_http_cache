@@ -78,6 +78,7 @@ defmodule PlugHTTPCache do
   - `:type`: `:shared`,
   - `:auto_compress`: `true`,
   - `:auto_accept_encoding`: `true`
+  - `:stale_while_revalidate_supported`: `true`
 
   ## Stores
 
@@ -136,7 +137,7 @@ defmodule PlugHTTPCache do
   - `[:plug_http_cache, :stale_if_error]` when a response was returned because an error
   occurred downstream (see `PlugHTTPCache.StaleIfError`)
 
-  Neither measurements nor metadata are added to these events.
+  `conn` is added to the events' metadata.
 
   The `http_cache`, `http_cache_store_memory` and `http_cache_store_disk` emit other events about
   the caching subsystems, including some helping with detecting normalization issues.
@@ -181,7 +182,8 @@ defmodule PlugHTTPCache do
   @default_caching_options %{
     type: :shared,
     auto_compress: true,
-    auto_accept_encoding: true
+    auto_accept_encoding: true,
+    stale_while_revalidate_supported: true
   }
 
   @doc """
@@ -226,18 +228,18 @@ defmodule PlugHTTPCache do
 
     case :http_cache.get(http_cache_request, opts) do
       {:fresh, {resp_ref, response}} ->
-        telemetry_log(:hit)
+        telemetry_log(:hit, conn)
         notify_and_send_response(conn, resp_ref, response, opts)
 
       {:stale, {resp_ref, response}} ->
-        telemetry_log(:hit)
+        if revalidate_stale_response?(response, opts),
+          do: revalidate_stale_response(conn, response)
 
-        if opts[:allow_stale_if_error], do: telemetry_log(:stale_if_error)
-
+        telemetry_log(:hit, conn)
         notify_and_send_response(conn, resp_ref, response, opts)
 
       _ ->
-        telemetry_log(:miss)
+        telemetry_log(:miss, conn)
         conn = install_callback(conn, opts)
 
         :http_cache.notify_downloading(http_cache_request, self(), opts)
@@ -246,13 +248,15 @@ defmodule PlugHTTPCache do
     end
   end
 
-  defp notify_and_send_response(conn, resp_ref, response, opts) do
+  @doc false
+  def notify_and_send_response(conn, resp_ref, response, opts) do
     :http_cache.notify_response_used(resp_ref, opts)
 
     send_response(conn, response, opts)
   end
 
-  defp send_response(conn, {status, resp_headers, {:sendfile, offset, length, path}}, opts) do
+  @doc false
+  def send_response(conn, {status, resp_headers, {:sendfile, offset, length, path}}, opts) do
     %Plug.Conn{conn | resp_headers: resp_headers}
     |> Plug.Conn.send_file(status, path, offset, length)
     |> Plug.Conn.halt()
@@ -260,7 +264,7 @@ defmodule PlugHTTPCache do
     e ->
       case e do
         %File.Error{reason: :enoent} ->
-          telemetry_log(:miss)
+          telemetry_log(:miss, conn)
           install_callback(conn, opts)
 
         _ ->
@@ -268,7 +272,7 @@ defmodule PlugHTTPCache do
       end
   end
 
-  defp send_response(conn, {status, resp_headers, iodata_body}, _opts) do
+  def send_response(conn, {status, resp_headers, iodata_body}, _opts) do
     %Plug.Conn{conn | resp_headers: resp_headers}
     |> Plug.Conn.send_resp(status, iodata_body)
     |> Plug.Conn.halt()
@@ -282,15 +286,11 @@ defmodule PlugHTTPCache do
     alt_keys = alt_keys(conn)
     http_cache_opts = Map.put(opts, :alternate_keys, alt_keys)
 
-    case :http_cache.cache(request(conn), response(conn), http_cache_opts) do
-      {:ok, _} ->
-        # We can't use the response returned by :http_cache because Plug disallow changing
-        # a response that is already :set
-        conn
+    # The response is already sent and we cannot modify it with the result of :http_cache.cache/3,
+    # hence we don't use the result of this function
+    :http_cache.cache(request(conn), response(conn), http_cache_opts)
 
-      :not_cacheable ->
-        conn
-    end
+    conn
   end
 
   defp cache_response(conn, _opts) do
@@ -302,7 +302,33 @@ defmodule PlugHTTPCache do
 
   defp alt_keys(_), do: []
 
-  defp request(conn) do
+  defp revalidate_stale_response(conn, cached_response) do
+    {_, cached_headers, _} = cached_response
+
+    Task.start(fn ->
+      conn
+      |> PlugLoopback.replay()
+      |> Plug.Conn.update_req_header("cache-control", "max-stale=0", &(&1 <> ", max-stale=0"))
+      |> add_validator(cached_headers, "last-modified", "if-modified-since")
+      |> add_validator(cached_headers, "etag", "if-none-match")
+      |> PlugLoopback.run()
+    end)
+  end
+
+  defp add_validator(conn, cached_headers, validator, condition_header) do
+    cached_headers
+    |> Enum.find(fn {header_name, _} -> String.downcase(header_name) == validator end)
+    |> case do
+      {_, header_value} ->
+        Plug.Conn.put_req_header(conn, condition_header, header_value)
+
+      nil ->
+        conn
+    end
+  end
+
+  @doc false
+  def request(conn) do
     {
       conn.method,
       Plug.Conn.request_url(conn),
@@ -322,11 +348,26 @@ defmodule PlugHTTPCache do
     }
   end
 
+  defp revalidate_stale_response?(response, opts) do
+    {_status, headers, _body} = response
+
+    # In theory we could erroneously revalidate a response with an expired timeout in
+    # `stale-while-revalidate` if the `max-stale` is used as well and as a greater duration.
+    # In practice this is deemed good enough™ for now
+
+    opts[:stale_while_revalidate_supported] == true and
+      Enum.any?(headers, fn {name, value} ->
+        String.downcase(name) == "cache-control" and
+          String.contains?(value, "stale-while-revalidate=")
+      end)
+  end
+
   defp req_body(%Plug.Conn{body_params: %Plug.Conn.Unfetched{}}), do: ""
   defp req_body(%Plug.Conn{body_params: %{} = map}) when map_size(map) == 0, do: ""
   defp req_body(conn), do: :erlang.term_to_binary(conn.body_params)
 
-  defp telemetry_log(event) do
-    :telemetry.execute([:plug_http_cache, event], %{}, %{})
+  @doc false
+  def telemetry_log(event, conn) do
+    :telemetry.execute([:plug_http_cache, event], %{}, %{conn: conn})
   end
 end
