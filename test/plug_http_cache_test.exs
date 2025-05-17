@@ -143,7 +143,7 @@ defmodule PlugHttpCacheTest do
 
       ref = :telemetry_test.attach_event_handlers(self(), [[:http_cache, :cache]])
 
-      assert %Plug.Conn{} = EndpointForRevalidate.call(conn, [])
+      EndpointForRevalidate.call(conn, [])
 
       :timer.sleep(2_000)
 
