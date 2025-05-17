@@ -141,7 +141,16 @@ defmodule PlugHttpCacheTest do
         |> conn("/stale/while/revalidate")
         |> Plug.Conn.put_req_header("cache-control", "max-stale=3600")
 
+      ref = :telemetry_test.attach_event_handlers(self(), [[:http_cache, :cache]])
+
       assert %Plug.Conn{} = EndpointForRevalidate.call(conn, [])
+
+      :timer.sleep(2_000)
+
+      {_, messages} = :erlang.process_info(self(), :messages)
+
+      # An infinite cycle would create tons of telemetry messages
+      assert length(messages) < 100
     end
   end
 
