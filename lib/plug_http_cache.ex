@@ -181,7 +181,8 @@ defmodule PlugHTTPCache do
   @default_caching_options %{
     type: :shared,
     auto_compress: true,
-    auto_accept_encoding: true
+    auto_accept_encoding: true,
+    stale_while_revalidate_supported: true
   }
 
   @doc """
@@ -230,6 +231,9 @@ defmodule PlugHTTPCache do
         notify_and_send_response(conn, resp_ref, response, opts)
 
       {:stale, {resp_ref, response}} ->
+        if revalidate_stale_response?(response, opts),
+          do: revalidate_stale_response(conn, response)
+
         telemetry_log(:hit, conn)
         notify_and_send_response(conn, resp_ref, response, opts)
 
@@ -297,6 +301,31 @@ defmodule PlugHTTPCache do
 
   defp alt_keys(_), do: []
 
+  defp revalidate_stale_response(conn, cached_response) do
+    {_, cached_headers, _} = cached_response
+
+    Task.start(fn ->
+      conn
+      |> PlugLoopback.replay()
+      |> Plug.Conn.update_req_header("cache-control", "max-stale=0", &(&1 <> ", max-stale=0"))
+      |> add_validator(cached_headers, "last-modified", "if-modified-since")
+      |> add_validator(cached_headers, "etag", "if-none-match")
+      |> PlugLoopback.run()
+    end)
+  end
+
+  defp add_validator(conn, cached_headers, validator, condition_header) do
+    cached_headers
+    |> Enum.find(fn {header_name, _} -> String.downcase(header_name) == validator end)
+    |> case do
+      {_, header_value} ->
+        Plug.Conn.put_req_header(conn, condition_header, header_value)
+
+      nil ->
+        conn
+    end
+  end
+
   @doc false
   def request(conn) do
     {
@@ -316,6 +345,20 @@ defmodule PlugHTTPCache do
       # process, which would have to be copied
       :erlang.iolist_to_binary(conn.resp_body)
     }
+  end
+
+  defp revalidate_stale_response?(response, opts) do
+    {_status, headers, _body} = response
+
+    # In theory we could erroneously revalidate a response with an expired timeout in
+    # `stale-while-revalidate` if the `max-stale` is used as well and as a greater duration.
+    # In practice this is deemed good enough™ for now
+
+    opts[:stale_while_revalidate_supported] == true and
+      Enum.any?(headers, fn {name, value} ->
+        String.downcase(name) == "cache-control" and
+          String.contains?(value, "stale-while-revalidate=")
+      end)
   end
 
   defp req_body(%Plug.Conn{body_params: %Plug.Conn.Unfetched{}}), do: ""

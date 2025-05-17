@@ -1,6 +1,7 @@
 defmodule PlugHttpCacheTest do
   use ExUnit.Case
-  use Plug.Test
+
+  import Plug.Test
 
   @hit_telemetry_event [:plug_http_cache, :hit]
   @miss_telemetry_event [:plug_http_cache, :miss]
@@ -17,6 +18,42 @@ defmodule PlugHttpCacheTest do
       |> Plug.Conn.delete_resp_header("cache-control")
       |> send_resp(200, "some content")
     end
+  end
+
+  Application.put_env(:phoenix, Module.concat(__MODULE__, EndpointForRevalidate), [])
+
+  defmodule EndpointForRevalidate do
+    use Phoenix.Endpoint, otp_app: :phoenix
+
+    def init(opts), do: opts
+
+    def call(conn, _opts) do
+      PlugHttpCacheTest.RouterForRevalidate.call(
+        conn,
+        PlugHttpCacheTest.RouterForRevalidate.init([])
+      )
+    end
+  end
+
+  defmodule RouterForRevalidate do
+    # We need a global state to test support for `stale-while-revalidate`, because the revalidate
+    # request is performed in another process. `http_cache_store_memory` provides with that
+    use Plug.Router
+
+    plug(PlugHTTPCache, %{store: :http_cache_store_memory})
+    plug(:match)
+    plug(:dispatch)
+
+    get "/stale/while/revalidate" do
+      conn
+      |> Plug.Conn.put_resp_header("cache-control", "max-age=0, stale-while-revalidate=60")
+      |> send_resp(200, "some content")
+    end
+  end
+
+  setup_all do
+    EndpointForRevalidate.start_link()
+    :ok
   end
 
   describe "call/2" do
@@ -63,7 +100,7 @@ defmodule PlugHttpCacheTest do
     test "non-cacheable content is not cached", %{test: test} do
       conn =
         conn(:get, "/page?#{URI.encode_www_form(to_string(test))}")
-        |> put_req_header("cache-control", "no-store")
+        |> Plug.Conn.put_req_header("cache-control", "no-store")
 
       request = {"GET", Plug.Conn.request_url(conn), [], ""}
 
@@ -80,6 +117,18 @@ defmodule PlugHttpCacheTest do
 
       assert :http_cache.get(request, %{store: :http_cache_store_process}) == :miss
       assert_receive {:telemetry_event, @miss_telemetry_event}
+    end
+
+    test "stale-while-revalidate is supported" do
+      conn = conn(:get, "/stale/while/revalidate")
+
+      ref = :telemetry_test.attach_event_handlers(self(), [[:http_cache, :cache]])
+
+      EndpointForRevalidate.call(conn, [])
+      EndpointForRevalidate.call(conn, [])
+
+      assert_receive {[:http_cache, :cache], ^ref, _, %{cacheable: true}}
+      assert_receive {[:http_cache, :cache], ^ref, _, %{cacheable: true}}
     end
   end
 

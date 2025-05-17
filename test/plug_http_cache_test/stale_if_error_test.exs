@@ -1,6 +1,7 @@
 defmodule PlugHTTPCache.StaleIfErrorTest do
   use ExUnit.Case
-  use Plug.Test
+
+  import Plug.Test
 
   @http_cache_opts %{store: :http_cache_store_process}
   @stale_returned_telemetry_event [:plug_http_cache, :stale_if_error]
@@ -46,7 +47,7 @@ defmodule PlugHTTPCache.StaleIfErrorTest do
   test "stale response is returned when header is set in request", %{test: test} do
     conn =
       conn(:get, "/boom")
-      |> put_req_header("cache-control", "stale-if-error=30")
+      |> Plug.Conn.put_req_header("cache-control", "stale-if-error=30")
 
     :telemetry.attach(
       test,
