@@ -78,6 +78,7 @@ defmodule PlugHTTPCache do
   - `:type`: `:shared`,
   - `:auto_compress`: `true`,
   - `:auto_accept_encoding`: `true`
+  - `:stale_while_revalidate_supported`: `true`
 
   ## Stores
 

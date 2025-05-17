@@ -99,6 +99,7 @@ This plug sets the following default options:
 - `:type`: `:shared`,
 - `:auto_compress`: `true`,
 - `:auto_accept_encoding`: `true`
+- `:stale_while_revalidate_supported`: `true`
 
 ## Stores
 
