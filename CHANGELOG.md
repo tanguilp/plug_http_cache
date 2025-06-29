@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog and this project adheres to Semantic Versioning.
 
+## [0.4.1] - 2025-06-29
+
+### Fixed
+
+- [`PlugHTTPCache`] URLs with RFC3986 non-conforming characters (such as `[`, `]`)
+no longer make `http_cache` crash
+
 ## [0.4.0] - 2025-05-17
 
 ### Added

@@ -152,6 +152,26 @@ defmodule PlugHttpCacheTest do
       # An infinite cycle would create tons of telemetry messages
       assert length(messages) < 100
     end
+
+    test "RFC3986 non-conforming query string is normalized", %{test: test} do
+      # See https://github.com/elixir-plug/plug/issues/1273
+      conn = conn(:get, "/page?param[]=value")
+      request = {"GET", "http://www.example.com/page?param%5B%5D=value", [], ""}
+
+      :telemetry.attach(
+        test,
+        @miss_telemetry_event,
+        fn _, _, _, _ ->
+          send(self(), {:telemetry_event, @miss_telemetry_event})
+        end,
+        nil
+      )
+
+      Router.call(conn, [])
+
+      assert {:fresh, _} = :http_cache.get(request, %{store: :http_cache_store_process})
+      assert_receive {:telemetry_event, @miss_telemetry_event}
+    end
   end
 
   describe "set_alternate_keys/2" do
