@@ -30,12 +30,12 @@ defmodule PlugHTTPCache.MixProject do
   defp deps do
     [
       {:dialyxir, "~> 1.0", only: [:dev], runtime: false},
-      {:ex_doc, "~> 0.24", only: :dev, runtime: false},
-      {:http_cache, "~> 0.4.0", optional: true},
-      {:http_cache_store_memory, "~> 0.3.0", only: :test},
+      {:ex_doc, "~> 0.40.0", only: :dev, runtime: false},
+      {:http_cache, "~> 1.0", optional: true},
+      {:http_cache_store_memory, "~> 1.0", only: :test},
       {:phoenix, "~> 1.0", only: :test},
       {:plug, "~> 1.0"},
-      {:plug_loopback, "~> 0.1.0"},
+      {:plug_loopback, "~> 1.0"},
       {:telemetry, "~> 1.0"}
     ]
   end

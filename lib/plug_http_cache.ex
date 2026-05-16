@@ -256,7 +256,11 @@ defmodule PlugHTTPCache do
   end
 
   @doc false
-  def send_response(conn, {status, resp_headers, {:sendfile, offset, length, path}}, opts) do
+  def send_response(
+        %Plug.Conn{} = conn,
+        {status, resp_headers, {:sendfile, offset, length, path}},
+        opts
+      ) do
     %Plug.Conn{conn | resp_headers: resp_headers}
     |> Plug.Conn.send_file(status, path, offset, length)
     |> Plug.Conn.halt()
@@ -272,7 +276,7 @@ defmodule PlugHTTPCache do
       end
   end
 
-  def send_response(conn, {status, resp_headers, iodata_body}, _opts) do
+  def send_response(%Plug.Conn{} = conn, {status, resp_headers, iodata_body}, _opts) do
     %Plug.Conn{conn | resp_headers: resp_headers}
     |> Plug.Conn.send_resp(status, iodata_body)
     |> Plug.Conn.halt()
